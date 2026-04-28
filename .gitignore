@@ -1,0 +1,28 @@
+
+venv/
+# Model weights (too large for git, downloaded on first run)
+models/
+*.pth
+*.onnx
+
+# Generated audio outputs
+outputs/
+*.wav
+*.mp3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
