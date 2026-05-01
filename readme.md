@@ -24,7 +24,7 @@ Raw Text
          │
          ▼
 ┌──────────────────┐     ┌────────────────────────────────────┐
-│   TTS Engine      │◄────│         Speaker Embedding           │
+│   TTS Engine     │◄────│         Speaker Embedding          │
 │   (XTTS-v2)      │     │                                    │
 └────────┬─────────┘     │  Built-in speaker                  │
          │               │  OR                                │
@@ -95,17 +95,17 @@ reference_audio/my_voice.wav
         │
         ▼
 ┌─────────────────────┐
-│   AudioProcessor     │  VAD → duration check → optional denoising
+│   AudioProcessor    │  VAD → duration check → optional denoising
 └────────┬────────────┘
          │
          ▼
 ┌─────────────────────┐
-│   SpeakerCache       │  SHA256 hash lookup → shelve cache
+│   SpeakerCache      │  SHA256 hash lookup → shelve cache
 └────────┬────────────┘  (skips re-extraction on repeat requests)
          │
          ▼
 ┌─────────────────────┐
-│   XTTS-v2 Encoder    │  extracts gpt_cond_latent + speaker_embedding
+│   XTTS-v2 Encoder   │  extracts gpt_cond_latent + speaker_embedding
 └────────┬────────────┘
          │
          ▼
