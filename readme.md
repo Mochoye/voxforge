@@ -14,12 +14,12 @@ Raw Text
    │
    ▼
 ┌──────────────────┐
-│  Text Normalizer  │  numbers, currency, abbreviations, years
+│  Text Normalizer │  numbers, currency, abbreviations, years
 └────────┬─────────┘
          │
          ▼
 ┌──────────────────┐
-│  Sentence Chunker │  boundary detection, merge short, split long
+│  Sentence Chunker│  boundary detection, merge short, split long
 └────────┬─────────┘
          │
          ▼
