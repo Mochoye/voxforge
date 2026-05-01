@@ -46,3 +46,42 @@ Each phase is a self-contained milestone.
 - No voice cloning yet — Phase 2
 - No streaming — Phase 3
 - No API — Phase 4
+
+
+
+## [Phase 2] — Voice Cloning via Speaker Embeddings
+
+**Goal:** Accept reference audio, extract speaker embedding, synthesize in cloned voice.
+
+### Added
+- `voxforge/audio_processor.py` — reference audio preprocessing module
+  - WebRTC VAD for voice activity detection (rejects clips below 30% voiced)
+  - Duration validation (3s minimum, 30s maximum)
+  - DeepFilterNet3 neural denoising (GPU-accelerated, default on)
+  - SHA256 file hashing for cache keying
+  - Saves processed audio alongside original for inspection
+- `voxforge/speaker_cache.py` — persistent embedding cache using shelve
+  - Stores gpt_cond_latent + speaker_embedding tensors on CPU
+  - Survives process restarts (models/speaker_cache.db)
+  - Full CRUD: get, set, has, delete, clear, list, size
+  - Phase 4 will replace with Redis for multi-process access
+- `voxforge/engine.py` — completed get_speaker_embedding_from_audio()
+- `voxforge/pipeline.py` — set_speaker_from_audio() with cache-first logic
+- `synthesize.py` — added --reference, --no-denoise, --force-reprocess flags
+- `tests/test_speaker_cache.py` — 7 unit tests, all passing
+
+### Key Findings
+- Temperature 0.3 produces closer voice matching than 0.7 for XTTS-v2
+- Denoising on already-clean recordings hurts clone quality (use --no-denoise)
+- XTTS-v2 clones pitch, timbre, and pace reliably — accent requires fine-tuning
+- Sweet spot for reference audio: 8–15s of expressive, consistent speech
+- Cache hit skips entire preprocessing pipeline on repeat requests
+
+### Benchmark (RTX 3050, reference audio 27.79s, voice ratio 85%)
+| Stage | Time |
+|-------|------|
+| VAD + validation | ~50ms |
+| DeepFilterNet3 denoising | ~1.2s |
+| Speaker embedding extraction | ~800ms |
+| Cache hit (second request) | 0ms |
+| Synthesis RTF | 1.46x |

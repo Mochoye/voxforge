@@ -23,13 +23,14 @@ Raw Text
 └────────┬─────────┘
          │
          ▼
-┌──────────────────┐     ┌──────────────────────┐
-│   TTS Engine      │◄────│  Speaker Embedding    │  built-in or cloned voice
-│   (XTTS-v2)      │     └──────────────────────┘
-└────────┬─────────┘
-         │
-         ▼
-    WAV Audio Output
+┌──────────────────┐     ┌────────────────────────────────────┐
+│   TTS Engine      │◄────│         Speaker Embedding           │
+│   (XTTS-v2)      │     │                                    │
+└────────┬─────────┘     │  Built-in speaker                  │
+         │               │  OR                                │
+         ▼               │  Reference Audio → VAD → Denoise   │
+    WAV Audio Output     │  → XTTS Encoder → Cache            │
+                         └────────────────────────────────────┘
 ```
 
 **Model:** [XTTS-v2](https://huggingface.co/coqui/XTTS-v2) — zero-shot multi-speaker TTS built on VITS. Supports 16 languages and voice cloning from a single reference clip.
@@ -41,14 +42,14 @@ Raw Text
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Baseline pipeline — text to speech, single speaker | ✅ Complete |
-| 2 | Voice cloning via speaker embeddings | 🔜 Next |
-| 3 | Inference optimization — ONNX, FP16, streaming | ⏳ Planned |
+| 2 | Voice cloning via speaker embeddings | ✅ Complete |
+| 3 | Inference optimization — ONNX, FP16, streaming | 🔜 Next |
 | 4 | REST API + Docker deployment | ⏳ Planned |
 | 5 | Evaluation — latency, quality, benchmarks | ⏳ Planned |
 
 ---
 
-## Phase 1 — What's Built
+## Phase 1 — Baseline Pipeline
 
 ### Modules
 
@@ -83,13 +84,67 @@ Raw Text
 
 ---
 
+## Phase 2 — Voice Cloning
+
+### How It Works
+
+Voice cloning works by extracting a speaker embedding from a short reference audio clip and conditioning the TTS model on it. No model fine-tuning required — XTTS-v2 supports zero-shot cloning natively.
+
+```
+reference_audio/my_voice.wav
+        │
+        ▼
+┌─────────────────────┐
+│   AudioProcessor     │  VAD → duration check → optional denoising
+└────────┬────────────┘
+         │
+         ▼
+┌─────────────────────┐
+│   SpeakerCache       │  SHA256 hash lookup → shelve cache
+└────────┬────────────┘  (skips re-extraction on repeat requests)
+         │
+         ▼
+┌─────────────────────┐
+│   XTTS-v2 Encoder    │  extracts gpt_cond_latent + speaker_embedding
+└────────┬────────────┘
+         │
+         ▼
+    Synthesis in cloned voice
+```
+
+### New Modules
+
+| Module | Description |
+|--------|-------------|
+| `voxforge/audio_processor.py` | Validates and preprocesses reference audio. Runs WebRTC VAD (rejects clips below 30% voiced), checks duration (3–30s), optionally applies DeepFilterNet3 neural denoising |
+| `voxforge/speaker_cache.py` | Persistent embedding cache using Python shelve. SHA256 file hash as key. Survives restarts. Cache hit skips the entire preprocessing and extraction pipeline |
+
+### Phase 2 Benchmark (RTX 3050, reference audio 27.79s, voice ratio 85%)
+
+| Stage | Time |
+|-------|------|
+| VAD + validation | ~50ms |
+| DeepFilterNet3 denoising | ~1.2s |
+| Speaker embedding extraction | ~800ms |
+| Synthesis RTF | 1.46x |
+| Cache hit (repeat request) | 0ms preprocessing |
+
+### Voice Cloning — Known Limitations
+
+XTTS-v2 is a zero-shot voice cloner — it has never seen your voice during training. It reliably clones pitch, timbre, and speaking pace. Accent and regional dialect require fine-tuning, which is outside the scope of this project.
+
+Best results with reference audio that is 8–15 seconds, expressive (not flat monotone), and recorded in a quiet environment. For already-clean recordings use `--no-denoise` to skip denoising.
+
+---
+
 ## Setup
 
 ### Requirements
 
 - Python 3.10 or 3.11 (not 3.12)
 - NVIDIA GPU with CUDA support (CPU works but is slow)
-- ~2.5 GB disk space for model weights
+- ~2.5 GB disk space for XTTS-v2 model weights
+- ~500 MB for DeepFilterNet3 weights (downloaded on first use)
 
 ### Installation
 
@@ -113,14 +168,14 @@ pip install torch==2.1.0 torchaudio==2.1.0 --index-url https://download.pytorch.
 # 4. Install remaining dependencies
 pip install -r requirements.txt
 
-# 5. Download model weights — first run only, around 1.8 GB
+# 5. Download XTTS-v2 weights — first run only, around 1.8 GB
 python -c "from TTS.api import TTS; TTS('tts_models/multilingual/multi-dataset/xtts_v2', agree=True)"
 ```
 
 ### Running
 
 ```bash
-# Basic synthesis
+# Built-in speaker (Phase 1 mode)
 python synthesize.py "Hello, this is VoxForge speaking."
 
 # Custom output path
@@ -128,15 +183,35 @@ python synthesize.py "Your text here." --output outputs/my_audio.wav
 
 # Different built-in speaker
 python synthesize.py "Your text here." --speaker "Craig Gutsy"
+
+# Voice cloning from reference audio (Phase 2 mode)
+python synthesize.py "Your text here." --reference reference_audio/my_voice.wav
+
+# Voice cloning without denoising (recommended for clean recordings)
+python synthesize.py "Your text here." --reference reference_audio/my_voice.wav --no-denoise
+
+# Force re-extract embedding even if cached
+python synthesize.py "Your text here." --reference reference_audio/my_voice.wav --force-reprocess
 ```
 
 Available built-in speakers: Ana Florence, Claribel Dervla, Daisy Studious, Gracie Wise, Tammie Ema, Alison Dietlinde, Craig Gutsy, Damien Black
+
+### Reference Audio Guidelines
+
+For best voice cloning results:
+
+- Duration: 8–15 seconds (sweet spot), minimum 3s, maximum 30s
+- Content: natural expressive speech, not flat monotone
+- Environment: quiet room, consistent volume, no background music
+- Format: WAV or MP3, any sample rate (resampled automatically)
+- Use `--no-denoise` if recording in a clean environment
 
 ### Running Tests
 
 ```bash
 python tests/test_normalizer.py
 python tests/test_chunker.py
+python tests/test_speaker_cache.py
 ```
 
 ---
@@ -145,18 +220,22 @@ python tests/test_chunker.py
 
 ```
 voxforge/
-├── voxforge/               # Core package
+├── voxforge/                  # Core package
 │   ├── __init__.py
-│   ├── normalizer.py       # Text normalization
-│   ├── chunker.py          # Sentence chunking
-│   ├── engine.py           # XTTS-v2 inference engine
-│   └── pipeline.py         # End-to-end pipeline
-├── tests/                  # Unit tests
+│   ├── normalizer.py          # Text normalization
+│   ├── chunker.py             # Sentence chunking
+│   ├── engine.py              # XTTS-v2 inference engine
+│   ├── pipeline.py            # End-to-end pipeline
+│   ├── audio_processor.py     # Reference audio preprocessing (Phase 2)
+│   └── speaker_cache.py       # Persistent embedding cache (Phase 2)
+├── tests/                     # Unit tests
 │   ├── test_normalizer.py
-│   └── test_chunker.py
-├── outputs/                # Synthesized audio (git-ignored)
-├── models/                 # Local model overrides (git-ignored)
-├── synthesize.py           # CLI entry point
+│   ├── test_chunker.py
+│   └── test_speaker_cache.py
+├── reference_audio/           # Reference clips for voice cloning (git-ignored)
+├── outputs/                   # Synthesized audio (git-ignored)
+├── models/                    # Speaker cache + model overrides (git-ignored)
+├── synthesize.py              # CLI entry point
 ├── requirements.txt
 ├── CHANGELOG.md
 └── README.md
@@ -173,12 +252,14 @@ voxforge/
 | Text Normalization | num2words, inflect |
 | Sentence Splitting | pysbd |
 | Audio I/O | soundfile, torchaudio |
+| Voice Activity Detection | webrtcvad-wheels |
+| Neural Denoising | deepfilternet (DeepFilterNet3) |
+| Embedding Cache | Python shelve (Phase 4 → Redis) |
 
 ---
 
 ## Roadmap
 
-- **Phase 2:** Accept reference audio, extract speaker embedding, clone voice
 - **Phase 3:** ONNX export, FP16 inference, chunked streaming, latency profiling
-- **Phase 4:** FastAPI REST endpoints, Docker container, streaming response
-- **Phase 5:** Full benchmark report — latency, throughput, UTMOS quality scores
+- **Phase 4:** FastAPI REST endpoints, Docker container, streaming response, Redis cache
+- **Phase 5:** Full benchmark report — latency, throughput, UTMOS quality scores, speaker similarity analysis
