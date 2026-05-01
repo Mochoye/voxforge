@@ -156,16 +156,24 @@ class TTSEngine:
 
         return gpt_cond_latent, speaker_embedding
 
-    def get_speaker_embedding_from_audio(self, audio_path: str):
+    def get_speaker_embedding_from_audio(self, audio_path: str) -> tuple:
         """
-        Extract conditioning latents from a reference audio file.
+        Extract conditioning latents from a preprocessed reference audio file.
         Phase 2 voice cloning entry point.
+
+        Args:
+            audio_path: Path to a preprocessed WAV file (output of AudioProcessor)
+
+        Returns:
+            (gpt_cond_latent, speaker_embedding) tensors on self.device
         """
         self._check_loaded()
 
         audio_path = Path(audio_path)
         if not audio_path.exists():
             raise FileNotFoundError(f"Reference audio not found: {audio_path}")
+
+        print(f"[TTSEngine] Extracting speaker embedding from: {audio_path.name}")
 
         gpt_cond_latent, speaker_embedding = self.model.get_conditioning_latents(
             audio_path=[str(audio_path)],
@@ -174,8 +182,11 @@ class TTSEngine:
             sound_norm_refs=self.config.sound_norm_refs,
         )
 
-        return gpt_cond_latent, speaker_embedding
+        print(f"[TTSEngine] Speaker embedding extracted. "
+              f"Latent shape: {gpt_cond_latent.shape} | "
+              f"Embedding shape: {speaker_embedding.shape}")
 
+        return gpt_cond_latent, speaker_embedding
     def synthesize_chunk(
         self,
         text: str,

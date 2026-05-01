@@ -7,6 +7,7 @@ from voxforge.normalizer import normalize
 from voxforge.chunker import chunk
 from voxforge.engine import TTSEngine
 
+from pathlib import Path
 
 class VoxForgePipeline:
     """
@@ -40,17 +41,87 @@ class VoxForgePipeline:
         self._speaker_name = speaker_name
         print(f"[Pipeline] Speaker ready: {speaker_name}")
 
-    def set_speaker_from_audio(self, audio_path: str):
+    def set_speaker_from_audio(
+        self,
+        audio_path: str,
+        apply_denoising: bool = True,
+        force_reprocess: bool = False,
+    ) -> dict:
         """
-        Use a reference WAV file as the voice (Phase 2 entry point).
-        Calling this replaces the current speaker embedding.
-        """
-        print(f"[Pipeline] Extracting speaker embedding from: {audio_path}")
-        self._gpt_cond_latent, self._speaker_embedding = \
-            self.engine.get_speaker_embedding_from_audio(audio_path)
-        self._speaker_name = f"custom:{Path(audio_path).stem}"
-        print(f"[Pipeline] Custom speaker ready: {self._speaker_name}")
+        Clone a voice from a reference audio file.
 
+        Steps:
+            1. Hash the file (cache key)
+            2. Check shelve cache — if hit, load and return immediately
+            3. If miss: preprocess audio → extract embedding → cache it
+
+        Args:
+            audio_path      : Path to reference WAV/MP3 file
+            apply_denoising : Run DeepFilterNet before embedding extraction
+            force_reprocess : Ignore cache and re-extract even if cached
+
+        Returns:
+            report dict with validation info and cache status
+        """
+        from voxforge.audio_processor import process_reference_audio, file_hash
+        from voxforge.speaker_cache import SpeakerCache
+
+        audio_path = str(audio_path)
+        cache = SpeakerCache()
+
+        # Step 1: Hash
+        audio_hash = file_hash(audio_path)
+        print(f"[Pipeline] Reference audio hash: {audio_hash[:12]}...")
+
+        # Step 2: Cache check
+        if not force_reprocess:
+            cached = cache.get(audio_hash, device=self.engine.device)
+            if cached is not None:
+                self._gpt_cond_latent = cached["gpt_cond_latent"]
+                self._speaker_embedding = cached["speaker_embedding"]
+                self._speaker_name = f"cached:{Path(audio_path).stem}"
+                print(f"[Pipeline] Cache HIT — loaded embedding from disk.")
+                return {
+                    "cache_hit": True,
+                    "source_file": audio_path,
+                    "hash": audio_hash[:12],
+                    "duration": cached["duration"],
+                    "voice_ratio": cached["voice_ratio"],
+                }
+
+        print(f"[Pipeline] Cache MISS — processing reference audio...")
+
+        # Step 3a: Preprocess
+        processed_path, report = process_reference_audio(
+            audio_path,
+            apply_denoising=apply_denoising,
+        )
+
+        # Step 3b: Extract embedding
+        gpt_cond_latent, speaker_embedding = \
+            self.engine.get_speaker_embedding_from_audio(processed_path)
+
+        # Step 3c: Store in cache
+        cache.set(
+            audio_hash,
+            gpt_cond_latent,
+            speaker_embedding,
+            metadata={
+                "source_file": audio_path,
+                "duration": report["duration"],
+                "voice_ratio": report["voice_ratio"],
+            }
+        )
+
+        # Step 3d: Set as active speaker
+        self._gpt_cond_latent = gpt_cond_latent
+        self._speaker_embedding = speaker_embedding
+        self._speaker_name = f"cloned:{Path(audio_path).stem}"
+
+        report["cache_hit"] = False
+        report["hash"] = audio_hash[:12]
+        return report
+    
     def synthesize(
         self,
         text: str,
