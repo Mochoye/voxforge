@@ -1,0 +1,116 @@
+{
+  "fp32_baseline": [
+    {
+      "label": "bench1_short",
+      "text_length": 44,
+      "chunks": 1,
+      "audio_duration_sec": 2.59,
+      "inference_sec": 1.78,
+      "rtf": 1.455,
+      "total_sec": 1.87,
+      "normalization_ms": 0.72,
+      "chunking_ms": 11.23,
+      "save_ms": 79.18
+    },
+    {
+      "label": "bench2_medium",
+      "text_length": 137,
+      "chunks": 2,
+      "audio_duration_sec": 9.93,
+      "inference_sec": 6.36,
+      "rtf": 1.561,
+      "total_sec": 6.42,
+      "normalization_ms": 0.67,
+      "chunking_ms": 2.78,
+      "save_ms": 51.47
+    },
+    {
+      "label": "bench3_long",
+      "text_length": 210,
+      "chunks": 2,
+      "audio_duration_sec": 14.06,
+      "inference_sec": 8.91,
+      "rtf": 1.578,
+      "total_sec": 8.95,
+      "normalization_ms": 0.06,
+      "chunking_ms": 3.28,
+      "save_ms": 37.0
+    }
+  ],
+  "fp16": [
+    {
+      "label": "bench1_short",
+      "text_length": 44,
+      "chunks": 1,
+      "audio_duration_sec": 2.51,
+      "inference_sec": 3.12,
+      "rtf": 0.804,
+      "total_sec": 3.23,
+      "normalization_ms": 0.05,
+      "chunking_ms": 2.03,
+      "save_ms": 68.55
+    },
+    {
+      "label": "bench2_medium",
+      "text_length": 137,
+      "chunks": 2,
+      "audio_duration_sec": 10.35,
+      "inference_sec": 7.58,
+      "rtf": 1.365,
+      "total_sec": 7.61,
+      "normalization_ms": 1.55,
+      "chunking_ms": 0.73,
+      "save_ms": 25.81
+    },
+    {
+      "label": "bench3_long",
+      "text_length": 210,
+      "chunks": 2,
+      "audio_duration_sec": 15.83,
+      "inference_sec": 10.79,
+      "rtf": 1.467,
+      "total_sec": 10.82,
+      "normalization_ms": 0.06,
+      "chunking_ms": 1.21,
+      "save_ms": 29.65
+    }
+  ],
+  "fp16_compile": [
+    {
+      "label": "bench1_short",
+      "text_length": 44,
+      "chunks": 1,
+      "audio_duration_sec": 2.51,
+      "inference_sec": 1.75,
+      "rtf": 1.434,
+      "total_sec": 1.78,
+      "normalization_ms": 0.03,
+      "chunking_ms": 0.4,
+      "save_ms": 32.19
+    },
+    {
+      "label": "bench2_medium",
+      "text_length": 137,
+      "chunks": 2,
+      "audio_duration_sec": 11.5,
+      "inference_sec": 7.91,
+      "rtf": 1.454,
+      "total_sec": 7.95,
+      "normalization_ms": 0.54,
+      "chunking_ms": 0.95,
+      "save_ms": 27.88
+    },
+    {
+      "label": "bench3_long",
+      "text_length": 210,
+      "chunks": 2,
+      "audio_duration_sec": 14.99,
+      "inference_sec": 10.19,
+      "rtf": 1.471,
+      "total_sec": 10.22,
+      "normalization_ms": 0.07,
+      "chunking_ms": 1.03,
+      "save_ms": 25.89
+    }
+  ]
+}

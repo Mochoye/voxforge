@@ -1,0 +1,43 @@
+{
+  "config": "fp16",
+  "use_fp16": true,
+  "use_compile": false,
+  "results": [
+    {
+      "label": "bench1_short",
+      "text_length": 44,
+      "chunks": 1,
+      "audio_duration_sec": 2.51,
+      "inference_sec": 3.12,
+      "rtf": 0.804,
+      "total_sec": 3.23,
+      "normalization_ms": 0.05,
+      "chunking_ms": 2.03,
+      "save_ms": 68.55
+    },
+    {
+      "label": "bench2_medium",
+      "text_length": 137,
+      "chunks": 2,
+      "audio_duration_sec": 10.35,
+      "inference_sec": 7.58,
+      "rtf": 1.365,
+      "total_sec": 7.61,
+      "normalization_ms": 1.55,
+      "chunking_ms": 0.73,
+      "save_ms": 25.81
+    },
+    {
+      "label": "bench3_long",
+      "text_length": 210,
+      "chunks": 2,
+      "audio_duration_sec": 15.83,
+      "inference_sec": 10.79,
+      "rtf": 1.467,
+      "total_sec": 10.82,
+      "normalization_ms": 0.06,
+      "chunking_ms": 1.21,
+      "save_ms": 29.65
+    }
+  ]
+}
