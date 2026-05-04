@@ -8,7 +8,7 @@ import torch
 import webrtcvad
 from pathlib import Path
 
-# DeepFilterNet — imported lazily so startup is fast
+
 _df_model = None
 _df_state = None
 
@@ -22,7 +22,6 @@ def _load_denoiser():
     return _df_model, _df_state
 
 
-# ── Constants ────────────────────────────────────────────────────────────────
 
 VAD_SAMPLE_RATE = 16000       # webrtcvad only works at 8k, 16k, 32k, 48k
 VAD_FRAME_MS = 30             # frame duration in ms (10, 20, or 30 only)
@@ -31,8 +30,6 @@ MIN_VOICE_RATIO = 0.3         # at least 30% of audio must be voiced
 MIN_DURATION_SEC = 3.0        # reject clips shorter than this
 MAX_DURATION_SEC = 30.0       # reject clips longer than this
 
-
-# ── Core functions ────────────────────────────────────────────────────────────
 
 def load_audio(audio_path: str) -> tuple[np.ndarray, int]:
     """
