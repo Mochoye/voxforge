@@ -85,3 +85,39 @@ Each phase is a self-contained milestone.
 | Speaker embedding extraction | ~800ms |
 | Cache hit (second request) | 0ms |
 | Synthesis RTF | 1.46x |
+
+## [Phase 3] — Inference Optimization
+
+**Goal:** Reduce latency through FP16, ONNX export, and chunked streaming.
+
+### Added
+- `voxforge/optimizer.py` — profiling, ONNX export attempt, torch.compile,
+  benchmark matrix runner with per-config JSON output
+- `voxforge/streamer.py` — producer-consumer chunked streaming engine using
+  Python threading and queue. Yields audio chunks as they are synthesized.
+- `benchmarks/run_benchmarks.py` — 3-configuration benchmark matrix runner
+- `benchmarks/results/` — JSON results for fp32_baseline, fp16, fp16_compile
+- `tests/test_streamer.py` — streaming pipeline integration test
+
+### Benchmark Results (RTX 3050, CUDA 11.8)
+
+| Config | bench1 RTF | bench2 RTF | bench3 RTF |
+|--------|-----------|-----------|-----------|
+| FP32 baseline | 1.46x | 1.56x | 1.58x |
+| FP16 | 0.80x | 1.36x | 1.47x |
+| FP16 + compile | 1.43x | 1.45x | 1.47x |
+
+### Key Findings
+- FP16 hurts performance on RTX 3050 — 2 tensor cores insufficient for
+  autoregressive TTS on small batches. Auto-disabled on GPUs under 8GB VRAM.
+- torch.compile unsupported on Windows (PyTorch 2.1 requires Triton)
+- ONNX export blocked by dynamic control flow in XTTS-v2 GPT backbone
+- Streaming: chunk 2 (4.53s inference) ready before chunk 1 (6.36s audio)
+  finishes playing — zero gap in real playback
+- First chunk latency: 5.47s for 90-char input on RTX 3050
+- Overall streaming RTF: 1.25x
+
+### Optimization Conclusion
+FP32 with GPU warm-up is optimal for RTX 3050 class hardware.
+FP16 flag retained in codebase — will benefit A100/V100/RTX 3080+ deployments.
+torch.compile will be re-evaluated in Phase 4 Linux Docker container.
