@@ -23,7 +23,7 @@ class TTSEngine:
     CHUNK_SILENCE_SEC = 0.05
     SAMPLE_RATE = 24000  # XTTS-v2 native sample rate
 
-    def __init__(self, device: str = None):
+    def __init__(self, device: str = None, use_fp16: bool = True):
         """
         Initialize the engine. Model is NOT loaded here —
         call .load() explicitly so startup timing is measurable.
@@ -33,11 +33,23 @@ class TTSEngine:
         else:
             self.device = device
 
+        # FP16 only makes sense on CUDA — force False on CPU
+        if use_fp16 and self.device == "cuda":
+            # Check VRAM as a proxy for GPU tier
+            # Under 8GB = budget GPU, FP16 not beneficial for autoregressive TTS
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+            self.use_fp16 = vram_gb >= 8.0
+            if not self.use_fp16:
+                print(f"[TTSEngine] FP16 disabled — GPU has {vram_gb:.1f}GB VRAM "
+                      f"(autoregressive TTS benefits from FP16 on 8GB+ GPUs)")
+        else:
+            self.use_fp16 = False
+
         self.model = None
         self.config = None
         self._load_time = None
 
-        print(f"[TTSEngine] Initialized. Device: {self.device}")
+        print(f"[TTSEngine] Initialized. Device: {self.device} | FP16: {self.use_fp16}")
     
     def _warmup(self):
         """
@@ -215,13 +227,19 @@ class TTSEngine:
 
         t0 = time.perf_counter()
 
-        with torch.no_grad():
+        autocast_ctx = torch.autocast(
+            device_type="cuda",
+            dtype=torch.float16,
+            enabled=self.use_fp16
+        )
+
+        with torch.no_grad(), autocast_ctx:
             output = self.model.inference(
                 text=text,
                 language=language,
                 gpt_cond_latent=gpt_cond_latent,
                 speaker_embedding=speaker_embedding,
-                temperature=0.7,        # controls variability — 0.7 is a good default
+                temperature=0.3,
                 length_penalty=1.0,
                 repetition_penalty=10.0,
                 top_k=50,

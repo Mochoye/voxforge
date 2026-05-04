@@ -19,8 +19,8 @@ class VoxForgePipeline:
         result = pipeline.synthesize("Hello world.", "outputs/hello.wav")
     """
 
-    def __init__(self, device: str = None):
-        self.engine = TTSEngine(device=device)
+    def __init__(self, device: str = None, use_fp16: bool = True):
+        self.engine = TTSEngine(device=device, use_fp16=use_fp16)
         self._gpt_cond_latent = None
         self._speaker_embedding = None
         self._speaker_name = None
